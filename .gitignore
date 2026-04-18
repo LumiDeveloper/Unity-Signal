@@ -1,0 +1,22 @@
+# Эта секция игнорирует временные папки Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+
+# Игнорируем файлы Visual Studio (они пересоздадутся)
+*.csproj
+*.unityproj
+*.sln
+*.user
+*.userprefs
+
+# Игнорируем кэш Visual Studio Code
+.vscode/
+
+# Игнорируем системные файлы
+.DS_Store
+Thumbs.db

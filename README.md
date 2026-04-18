@@ -35,6 +35,13 @@
 3. Выбери **папку**, которую скачал (ту, где лежат папки `Assets`, `Packages`, `ProjectSettings`)
 4. Проект появится в списке
 
+(ВАЖНО! Папку которую ты выбираешь не должна содержать внутри себя еще одну папку)
+Downloads\Unity-Signal-main\Unity-Signal-main - верно!!!
+Downloads\Unity-Signal-main - This project is not valid
+
+Поэтому если выскочило (This project is not valid) обязательно вытащи эту папку наружу так, чтобы внутри по открытию папки были только папки `Assets`, `Packages`, `ProjectSettings`.
+Не в коем случае не Unity-Signal-main. Ну или распакуй аккуратно. Сам проверял, бывает такое)
+
 ---
 
 ### 3. Запусти

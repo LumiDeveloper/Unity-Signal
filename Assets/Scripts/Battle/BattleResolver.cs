@@ -5,153 +5,184 @@ namespace SignalRoguelite
 {
     public class BattleResolver
     {
-        // Результат одного шага
+        // Result of one step
         public struct StepResult
         {
-            public int playerDamage;      // урон игрока по врагу
-            public int playerHeal;        // лечение игрока
-            public int enemyDamage;       // урон врага по игроку
-            public bool blockedEnemy;     // заблокирована ли атака врага
-            public string logMessage;     // текстовое описание шага
+            public int playerDamage;
+            public int playerHeal;
+            public int enemyDamage;
+            public bool blockedEnemy;
+            public string logMessage;
         }
 
-        // Обработка одного шага
-        public static StepResult ResolveStep(ShapeType playerShape, ShapeType enemyShape, int enemyAttackPower)
+        // Process one step
+        public static StepResult ResolveStep(ShapeType playerShape, ShapeType enemyShape, 
+            int enemyAttackPower, int playerAttackBonus = 0, int playerHealBonus = 0)
         {
-            StepResult result = new StepResult();
-            result.playerDamage = 0;
-            result.playerHeal = 0;
-            result.enemyDamage = 0;
-            result.blockedEnemy = false;
+            StepResult result = new StepResult
+            {
+                playerDamage = 0,
+                playerHeal = 0,
+                enemyDamage = 0,
+                blockedEnemy = false,
+                logMessage = ""
+            };
 
-            // --- Действие игрока ---
+            // --- Player action with bonuses ---
             switch (playerShape)
             {
-                case ShapeType.Triangle:  // Атака
-                    result.playerDamage = 10;
-                    result.logMessage = "Ты атакуешь!";
+                case ShapeType.Triangle:
+                    result.playerDamage = 10 + playerAttackBonus;
+                    result.logMessage = $"You attack! (+{playerAttackBonus})";
                     break;
                     
-                case ShapeType.Circle:    // Лечение
-                    result.playerHeal = 8;
-                    result.logMessage = "Ты лечишься!";
+                case ShapeType.Circle:
+                    result.playerHeal = 8 + playerHealBonus;
+                    result.logMessage = $"You heal! (+{playerHealBonus})";
                     break;
                     
-                case ShapeType.Square:    // Парирование
-                    result.logMessage = "Ты готовишься парировать...";
+                case ShapeType.Square:
+                    result.logMessage = "You prepare to parry...";
                     break;
             }
 
-            // --- Действие врага (если не заблокирован) ---
+            // --- Enemy action ---
             bool enemyBlocked = (playerShape == ShapeType.Square && enemyShape == ShapeType.Triangle);
             
-            if (!enemyBlocked)
+            if (!enemyBlocked && enemyShape == ShapeType.Triangle)
             {
-                switch (enemyShape)
-                {
-                    case ShapeType.Triangle:
-                        result.enemyDamage = enemyAttackPower;
-                        result.logMessage += " Враг атакует!";
-                        break;
-                    case ShapeType.Circle:
-                        // Враг лечится (не влияет на игрока)
-                        result.logMessage += " Враг лечится.";
-                        break;
-                    case ShapeType.Square:
-                        // Враг парирует (не наносит урон)
-                        result.logMessage += " Враг парирует.";
-                        break;
-                }
+                result.enemyDamage = enemyAttackPower;
+                result.logMessage += " Enemy attacks!";
             }
-            else
+            else if (enemyBlocked)
             {
-                result.logMessage += " Ты парировал атаку врага!";
+                result.logMessage += " You parried the enemy's attack!";
                 result.blockedEnemy = true;
+            }
+            else if (enemyShape == ShapeType.Circle)
+            {
+                result.logMessage += " Enemy heals.";
+            }
+            else if (enemyShape == ShapeType.Square)
+            {
+                result.logMessage += " Enemy parries.";
             }
 
             return result;
         }
 
-        // Полная битва (3 шага)
-        public static BattleResult RunBattle(EncodedSignal playerSignal, EnemyData enemy, out string battleLog, RoguelikeProgress roguelikeProgress)
+        // Full battle (3 steps)
+        public static BattleResult RunBattle(EncodedSignal playerSignal, EnemyData enemy, 
+            out string battleLog, RoguelikeProgress roguelikeProgress)
         {
-            int playerHp = roguelikeProgress != null ? roguelikeProgress.currentHP : 100;
+            battleLog = "=== BATTLE STARTED ===\n";
+            
+            if (roguelikeProgress == null)
+            {
+                battleLog += "\nERROR: RoguelikeProgress not assigned!\n";
+                return BattleResult.Defeat;
+            }
+            
+            // Get player stats via properties
+            int playerHp = roguelikeProgress.CurrentHP;
+            int attackBonus = roguelikeProgress.AttackBonus;
+            int healBonus = roguelikeProgress.HealBonus;
             int enemyHp = enemy.enemyHp;
-            battleLog = "=== БИТВА НАЧАЛАСЬ ===\n";
-
+            
+            Debug.Log($"[RunBattle] Battle start. PlayerHP: {playerHp}/{roguelikeProgress.MaxHP}, " +
+                      $"AttackBonus: +{attackBonus}, HealBonus: +{healBonus}");
+            Debug.Log($"[RunBattle] Enemy: {enemy.enemyName}, HP: {enemyHp}, Attack: {enemy.attackPower}, PlayerFirst: {enemy.playerFirst}");
+            
             for (int step = 0; step < 3; step++)
             {
-                battleLog += $"\n--- Шаг {step + 1} ---\n";
+                battleLog += $"\n--- Step {step + 1} ---\n";
                 
-                // Кто ходит первым?
+                StepResult stepResult = ResolveStep(playerSignal.shapes[step], enemy.shapes[step], 
+                    enemy.attackPower, attackBonus, healBonus);
+                
+                // Log turn order
                 if (enemy.playerFirst)
                 {
-                    // Враг ходит первым (сложный режим)
-                    battleLog += "Враг атакует первым!\n";
-                    // Сначала обрабатываем атаку врага (упрощённо)
-                    if (playerSignal.shapes[step] != ShapeType.Square)
-                    {
-                        playerHp -= enemy.attackPower;
-                        battleLog += $"Враг нанёс {enemy.attackPower} урона! HP: {playerHp}\n";
-                    }
-                    else
-                    {
-                        battleLog += "Ты парировал! Урона нет.\n";
-                    }
-                    
-                    // Потом действие игрока
-                    StepResult stepResult = ResolveStep(playerSignal.shapes[step], enemy.shapes[step], enemy.attackPower);
-                    ApplyStepResult(ref playerHp, ref enemyHp, stepResult);
-                    battleLog += stepResult.logMessage + $"\nHP игрока: {playerHp} | HP врага: {enemyHp}\n";
+                    battleLog += "Enemy attacks first!\n";
                 }
-                else
-                {
-                    // Игрок ходит первым
-                    StepResult stepResult = ResolveStep(playerSignal.shapes[step], enemy.shapes[step], enemy.attackPower);
-                    ApplyStepResult(ref playerHp, ref enemyHp, stepResult);
-                    battleLog += stepResult.logMessage + $"\nHP игрока: {playerHp} | HP врага: {enemyHp}\n";
-                }
-
-                // Проверка смерти
+                
+                // Apply step result
+                ApplyStepResult(ref playerHp, ref enemyHp, stepResult, ref battleLog);
+                
+                // Check player death
                 if (playerHp <= 0)
                 {
-                    battleLog += "\n❌ ТВОЙ СИГНАЛ ПЕРЕХВАЧЕН! Линия связи оборвана.\n";
+                    battleLog += "\nYOUR SIGNAL WAS INTERCEPTED! Communication link broken.\n";
+                    roguelikeProgress.ForceKill();
                     return BattleResult.Defeat;
                 }
                 
+                // Check enemy death
                 if (enemyHp <= 0)
                 {
-                    battleLog += "\n✅ ВРАГ ПОВЕРЖЕН! Сигнал доставлен!\n";
+                    battleLog += "\nENEMY DEFEATED! Signal delivered!\n";
+                    SyncFinalHP(roguelikeProgress, playerHp);
                     return BattleResult.Victory;
                 }
             }
 
-            // После битвы обновляем HP игрока
-            if (roguelikeProgress != null)
-            {
-                roguelikeProgress.currentHP = playerHp;
-                roguelikeProgress.UpdateUI();
-            }
-
-            // После 3 шагов проверяем, кто выжил
+            // Battle finished after 3 steps
+            SyncFinalHP(roguelikeProgress, playerHp);
+            
             if (playerHp > 0 && enemyHp > 0)
             {
-                battleLog += "\n⚖️ Битва окончена, но сигнал всё ещё в пути...";
-                return BattleResult.Victory;
+                battleLog += "\nBattle finished, signal is on its way... Ally received the message.";
             }
             
-            return (playerHp > 0) ? BattleResult.Victory : BattleResult.Defeat;
+            return BattleResult.Victory;
         }
 
-        private static void ApplyStepResult(ref int playerHp, ref int enemyHp, StepResult result)
+        // Apply result of one step
+        private static void ApplyStepResult(ref int playerHp, ref int enemyHp, StepResult result, ref string battleLog)
         {
+            int oldPlayerHp = playerHp;
+            int oldEnemyHp = enemyHp;
+            
+            // Apply changes
             playerHp += result.playerHeal;
             playerHp -= result.enemyDamage;
             enemyHp -= result.playerDamage;
             
-            // Ограничения
+            // Clamp values
             playerHp = Mathf.Max(0, playerHp);
             enemyHp = Mathf.Max(0, enemyHp);
+            
+            // Add damage/heal info to log
+            battleLog += result.logMessage;
+            
+            if (result.playerHeal > 0)
+                battleLog += $" (Restored {result.playerHeal} HP)";
+            if (result.playerDamage > 0)
+                battleLog += $" (Dealt {result.playerDamage} damage)";
+            if (result.enemyDamage > 0)
+                battleLog += $" (Received {result.enemyDamage} damage)";
+            
+            battleLog += $"\nPlayer HP: {oldPlayerHp} -> {playerHp}";
+            battleLog += $" | Enemy HP: {oldEnemyHp} -> {enemyHp}\n";
+        }
+
+        // Sync final HP with RoguelikeProgress
+        private static void SyncFinalHP(RoguelikeProgress progress, int finalHp)
+        {
+            if (progress != null)
+            {
+                int beforeHp = progress.CurrentHP;
+                Debug.Log($"[SyncFinalHP] ENTER: finalHp={finalHp}, progress.CurrentHP={beforeHp}");
+                
+                progress.CurrentHP = finalHp;
+                
+                Debug.Log($"[SyncFinalHP] AFTER: progress.CurrentHP={progress.CurrentHP}");
+                progress.UpdateUI();
+            }
+            else
+            {
+                Debug.LogError("[SyncFinalHP] progress = null!");
+            }
         }
     }
 }

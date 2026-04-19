@@ -10,167 +10,151 @@ namespace SignalRoguelite
     public class BattleTester : MonoBehaviour
     {
         [Header("UI Elements")]
-        public TMP_Dropdown color1Dropdown;
-        public TMP_Dropdown color2Dropdown;
-        public TMP_Dropdown color3Dropdown;
-        public TMP_Dropdown shape1Dropdown;
-        public TMP_Dropdown shape2Dropdown;
-        public TMP_Dropdown shape3Dropdown;     
-
-        public TMP_Text battleLogText;          // Кнопка отправки сообщения
-        public TMP_Text messageText;            // Текст сообщения
-        public Button sendButton;               // Кнопка отправки сообщения
-        public Button nextLevelButton;          // Кнопка следующего уровня
+        [SerializeField] private TMP_Dropdown color1Dropdown;
+        [SerializeField] private TMP_Dropdown color2Dropdown;
+        [SerializeField] private TMP_Dropdown color3Dropdown;
+        [SerializeField] private TMP_Dropdown shape1Dropdown;
+        [SerializeField] private TMP_Dropdown shape2Dropdown;
+        [SerializeField] private TMP_Dropdown shape3Dropdown;     
+        [SerializeField] private TMP_Text battleLogText;
+        [SerializeField] private TMP_Text messageText;
+        [SerializeField] private Button sendButton;
+        [SerializeField] private Button nextLevelButton;
 
         [Header("Scout")]
-        public GameObject scoutPanel;           // Ссылка на окно разведки
-        public TMP_Text scoutEnemyNameText;     // Имя врага
-        public TMP_Text scoutShapesText;        // Цепочка фигур врага
-        public TMP_Text scoutTurnOrderText;     // Очерёдность
-        public Button scoutButton;              // Кнопка "Разведка"
+        [SerializeField] private GameObject scoutPanel;
+        [SerializeField] private TMP_Text scoutEnemyNameText;
+        [SerializeField] private TMP_Text scoutShapesText;
+        [SerializeField] private TMP_Text scoutTurnOrderText;
+        [SerializeField] private Button scoutButton;
 
         [Header("Level Counter")]
-        public TMP_Text levelCounterText;       // Счетчик уровней
+        [SerializeField] private TMP_Text levelCounterText;
 
+        [Header("Game Over")]
+        [SerializeField] private GameObject gameOverPanel;
+        [SerializeField] private TMP_Text gameOverScoreText;
+        [SerializeField] private Button restartButton;
 
-        // Внешние скрипты (Roguelike)
         [Header("Roguelike")]
-        public RoguelikeProgress roguelikeProgress;
+        [SerializeField] private RoguelikeProgress roguelikeProgress;
 
-
-        
-        // Переменные кодирования и уровни
+        // Private fields
         private EnemyData currentEnemy;
         private EncodedSignal currentSignal;
         private int currentLevel = 1;
-
-        // Список сообщений и правильных ответов
-        private MessageLevel[] levels = new MessageLevel[]
-        {
-            new MessageLevel("На северном посту врагов нет. Атакуй южный фронт!", true, true),
-            new MessageLevel("Врагов нет! Всем стоять на месте.", true, false),
-            new MessageLevel("Атакуй! Атакуй! Никого не щади!", false, true),
-            new MessageLevel("Обстановка спокойная. Врагов нет. Отдыхайте.", true, false),
-            new MessageLevel("Врагов нет на востоке. Атакуй западный фланг!", true, true)
-        };
-        
-
-
-
-
-
-
-
-
-
-
-// ================================= Функциональность игры, в основном здесь лежит вообще всё, будь моя воля переписал на модульную архитектуру ====================================================
-
+        private GeneratedMessage currentMessage;
+        private bool isBattleInProgress = false;
 
         void Start()
         {
-            sendButton.onClick.AddListener(StartBattle);
-            nextLevelButton.onClick.AddListener(NextLevel);
-            nextLevelButton.interactable = false;  // Сначала скрыта/неактивна
-            currentSignal = new EncodedSignal();
-            scoutButton.onClick.AddListener(ShowScoutInfo);
-            scoutPanel.SetActive(false);
+            Initialize();
+        }
 
+        private void Initialize()
+        {
+            // Button subscriptions
+            if (sendButton != null) sendButton.onClick.AddListener(StartBattle);
+            if (nextLevelButton != null) nextLevelButton.onClick.AddListener(NextLevel);
+            if (scoutButton != null) scoutButton.onClick.AddListener(ShowScoutInfo);
+            if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
+
+            // Initialization
+            currentSignal = new EncodedSignal();
+            
+            if (scoutPanel != null) scoutPanel.SetActive(false);
+            if (gameOverPanel != null) gameOverPanel.SetActive(false);
+            
+            // Roguelike events subscription
             if (roguelikeProgress != null)
             {
                 roguelikeProgress.OnPlayerDeath += OnPlayerDeath;
-            }
-
-            if (roguelikeProgress != null)
-            {
                 roguelikeProgress.OnRewardSelected += OnRewardSelected;
             }
-            
-            LoadLevel(0);
+
+            // Start game
+            StartNewGame();
         }
 
-        void OnRewardSelected()
+        private void StartNewGame()
         {
-            // Переход на следующий уровень после выбора награды
-            nextLevelButton.interactable = true;
-            sendButton.interactable = false;
+            currentLevel = 1;
+            isBattleInProgress = false;
+            
+            if (roguelikeProgress != null)
+                roguelikeProgress.ResetProgress();
+            
+            GenerateNewLevel();
         }
 
-
-// ------------------------------------- Работа со сценами уровня -------------------------------------------------------------
-        
-        void LoadLevel(int levelIndex)
+        private void GenerateNewLevel()
         {
-            // Защита от null
-            if (messageText == null)
+            // Null check for UI components
+            if (messageText == null || levelCounterText == null)
             {
-                Debug.LogError("messageText не назначен в инспекторе!");
+                Debug.LogError("[GenerateNewLevel] UI components not assigned in inspector!");
                 return;
             }
+
+            currentMessage = MessageGenerator.GenerateMessage(currentLevel);
             
-            if (levelCounterText == null)
+            if (currentMessage == null)
             {
-                Debug.LogError("levelCounterText не назначен в инспекторе!");
-                return;
+                Debug.LogError($"[GenerateNewLevel] Failed to generate message for level {currentLevel}");
+                currentMessage = new GeneratedMessage 
+                { 
+                    messageText = "Attack north! No enemies at east. Hold position!",
+                    requiredColors = new SignalColor[] { SignalColor.Red, SignalColor.Green, SignalColor.Red }
+                };
             }
             
-            if (levels == null || levels.Length == 0)
-            {
-                Debug.LogError("Массив levels пуст или не назначен!");
-                return;
-            }
-            
-            if (levelIndex >= levels.Length)
-            {
-                if (messageText != null)
-                    messageText.text = "🎉 ПОЗДРАВЛЯЮ! Ты прошёл всю игру! 🎉";
-                if (battleLogText != null)
-                    battleLogText.text = "Спасибо за игру!";
-                if (sendButton != null)
-                    sendButton.interactable = false;
-                if (nextLevelButton != null)
-                    nextLevelButton.interactable = false;
-                return;
-            }
-            
-            var level = levels[levelIndex];
-            messageText.text = $"📨 УРОВЕНЬ {currentLevel}: {level.message}";
-            levelCounterText.text = $"📊 УРОВЕНЬ {currentLevel} / {levels.Length}";
+            messageText.text = $"LEVEL {currentLevel}: {currentMessage.messageText}";
+            levelCounterText.text = $"LEVEL {currentLevel}";
             
             if (battleLogText != null)
-                battleLogText.text = "Выбери цвета и фигуры, затем нажми ОТПРАВИТЬ";
+                battleLogText.text = "Choose colors and shapes, then press SEND";
             
             if (nextLevelButton != null)
                 nextLevelButton.interactable = false;
             
             if (sendButton != null)
                 sendButton.interactable = true;
+            
+            isBattleInProgress = false;
+            
+            Debug.Log($"[GenerateNewLevel] Level {currentLevel} created. HP: {roguelikeProgress?.CurrentHP}/{roguelikeProgress?.MaxHP}");
         }
 
-        void NextLevel()
+        private void StartBattle()
         {
-            currentLevel++;
-            LoadLevel(currentLevel - 1);
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ------------------------------------- Работа с врагами и сражениями в игре -------------------------------------------------------------
-
-        void StartBattle()
-        {
-            // Собираем сигнал из UI
+            if (isBattleInProgress)
+            {
+                Debug.LogWarning("[StartBattle] Battle already in progress!");
+                return;
+            }
+            
+            if (roguelikeProgress == null)
+            {
+                Debug.LogError("[StartBattle] RoguelikeProgress not assigned!");
+                return;
+            }
+            
+            // Check and restore message
+            if (currentMessage == null)
+            {
+                Debug.LogWarning("[StartBattle] currentMessage = null, regenerating level!");
+                GenerateNewLevel();
+                
+                if (currentMessage == null)
+                {
+                    battleLogText.text = "CRITICAL ERROR: Failed to create message!";
+                    return;
+                }
+            }
+            
+            isBattleInProgress = true;
+            
+            // Collect signal from UI
             currentSignal.colors[0] = (SignalColor)color1Dropdown.value;
             currentSignal.colors[1] = (SignalColor)color2Dropdown.value;
             currentSignal.colors[2] = (SignalColor)color3Dropdown.value;
@@ -178,240 +162,203 @@ namespace SignalRoguelite
             currentSignal.shapes[1] = (ShapeType)shape2Dropdown.value;
             currentSignal.shapes[2] = (ShapeType)shape3Dropdown.value;
             
-            // ПОЛУЧАЕМ ТЕКУЩЕГО ВРАГА
+            // Get enemy
             currentEnemy = GetCurrentEnemy();
             
-            // Бонусы от рогалика
-            int attackBonus = roguelikeProgress != null ? roguelikeProgress.attackBonus : 0;
-            int healBonus = roguelikeProgress != null ? roguelikeProgress.healBonus : 0;
+            Debug.Log($"[StartBattle] Battle starting. Level {currentLevel}, Player HP: {roguelikeProgress.CurrentHP}/{roguelikeProgress.MaxHP}");
             
-            // ЗАПУСКАЕМ БИТВУ (только один раз!)
+            // Run battle
             BattleResult result = BattleResolver.RunBattle(currentSignal, currentEnemy, out string log, roguelikeProgress);
-            
-            // Данные текущего уровня
-            var currentLevelData = levels[currentLevel - 1];
-            bool encryptionCorrect = IsMessageCorrectlyEncoded(currentSignal.colors, currentLevelData);
-            
-            // Формируем результат
+
+            // Check encryption correctness
+            bool encryptionCorrect = IsMessageCorrectlyEncoded(currentSignal.colors, currentMessage);
+
+            // Form result
             if (result == BattleResult.Victory)
             {
                 if (encryptionCorrect)
                 {
-                    battleLogText.text = log + $"\n\n✅ ПОБЕДА! Сигнал доставлен. Союзник ПОНЯЛ сообщение!";
-                    
-                    if (roguelikeProgress != null)
-                        roguelikeProgress.ShowReward();
-                    else
-                        nextLevelButton.interactable = true;
-                        
+                    battleLogText.text = log + $"\n\nVICTORY! Signal delivered. Ally UNDERSTOOD the message!";
+                    roguelikeProgress.ShowReward();
                     sendButton.interactable = false;
                 }
                 else
                 {
-                    battleLogText.text = log + $"\n\n⚠️ Ты победил в бою, но НЕПРАВИЛЬНО зашифровал смысл!\n" +
-                                        $"Союзник не понял: {(NeedRed(currentLevelData) ? "нужен был КРАСНЫЙ" : "")} " +
-                                        $"{(NeedGreen(currentLevelData) ? "нужен был ЗЕЛЁНЫЙ" : "")}\n" +
-                                        $"Попробуй ещё раз на этом уровне.";
+                    // GAME OVER - wrong encryption despite winning
+                    string requiredText = "";
+                    for (int i = 0; i < 3; i++)
+                    {
+                        requiredText += $"Pos{i+1}: {(currentMessage.requiredColors[i] == SignalColor.Red ? "RED" : "GREEN")} ";
+                    }
+                    
+                    battleLogText.text = log + $"\n\nYOU WON THE BATTLE, BUT THE MESSAGE WAS WRONG!\n" +
+                                        $"Required colors: {requiredText}\n" +
+                                        $"GAME OVER - Mission failed due to wrong encryption.";
+                    roguelikeProgress.ForceKill();
+                    sendButton.interactable = false;
                     nextLevelButton.interactable = false;
-                    sendButton.interactable = true;
                 }
             }
             else
             {
-                battleLogText.text = log + $"\n\n❌ ПОРАЖЕНИЕ! Сигнал перехвачен. Попробуй ещё раз.";
+                // GAME OVER - lost the battle
+                battleLogText.text = log + $"\n\nDEFEAT! Signal intercepted. Game Over.";
+                sendButton.interactable = false;
                 nextLevelButton.interactable = false;
-                sendButton.interactable = true;
             }
         }
 
-        // Массив врагов для каждого уровня
-        private EnemyData[] enemies = new EnemyData[]
+        private void NextLevel()
         {
-            new EnemyData("Сканер", new ShapeType[] { ShapeType.Triangle, ShapeType.Square, ShapeType.Circle }, false, 20, 8),
-            new EnemyData("Глушилка", new ShapeType[] { ShapeType.Square, ShapeType.Triangle, ShapeType.Square }, true, 25, 10),
-            new EnemyData("Перехватчик", new ShapeType[] { ShapeType.Circle, ShapeType.Triangle, ShapeType.Triangle }, false, 30, 12),
-            new EnemyData("Шифровальщик", new ShapeType[] { ShapeType.Square, ShapeType.Circle, ShapeType.Square }, true, 35, 14),
-            new EnemyData("Анализатор", new ShapeType[] { ShapeType.Triangle, ShapeType.Circle, ShapeType.Triangle }, false, 40, 15),
-        };
-
-        void OnPlayerDeath()
-        {
-            battleLogText.text = "💀 ТВОЙ ОПЕРАТОР ПОГИБ! Игра окончена. 💀\nНажмите Restart в меню.";
-            sendButton.interactable = false;
-            nextLevelButton.interactable = false;
-        }
-
-
-
-
-// ------------------------------------- Работа с цветами и фигурами в игре, шифрование и определение цветов -------------------------------------------------------------
-
-        
-        // Проверка: нужен ли в сообщении красный (Атакуй)
-        private bool NeedRed(MessageLevel level)
-        {
-            return level.needAttack;
-        }
-        
-        // Проверка: нужен ли в сообщении зелёный (Врагов нет)
-        private bool NeedGreen(MessageLevel level)
-        {
-            return level.needNoEnemies;
-        }
-        
-        // Проверка правильности шифрования
-        private bool IsMessageCorrectlyEncoded(SignalColor[] colors, MessageLevel level)
-        {
-            bool hasRed = colors.Contains(SignalColor.Red);
-            bool hasGreen = colors.Contains(SignalColor.Green);
-            
-            if (NeedRed(level) && !hasRed) return false;
-            if (NeedGreen(level) && !hasGreen) return false;
-            
-            return true;
-        }
-
-        void ShowScoutInfo()
-        {
-            var currentEnemy = GetCurrentEnemy();
-            
-            scoutEnemyNameText.text = $"🕵️ ВРАГ: {currentEnemy.enemyName}";
-            
-            // Преобразуем фигуры в текст
-            string shapesString = "";
-            foreach (var shape in currentEnemy.shapes)
+            if (isBattleInProgress)
             {
-                shapesString += GetShapeSymbol(shape) + " → ";
+                Debug.LogWarning("[NextLevel] Cannot go to next level during battle!");
+                return;
             }
-            shapesString = shapesString.TrimEnd(' ', '→');
-            scoutShapesText.text = $"🎴 ЦЕПОЧКА: {shapesString}";
             
-            scoutTurnOrderText.text = currentEnemy.playerFirst ? 
-                "⚔️ ПЕРВЫМ ХОДИТ: ВРАГ" : 
-                "⚔️ ПЕРВЫМ ХОДИШЬ: ТЫ";
-            
-            scoutPanel.SetActive(true);
+            currentLevel++;
+            GenerateNewLevel();
+            Debug.Log($"[NextLevel] Moving to level {currentLevel}");
         }
 
-
-        // Структура для проверки позиции цвета
-        public class ColorPositionRequirement
+        private void OnRewardSelected()
         {
-            public SignalColor color;
-            public ColorPosition position;  // Start, Middle, End
-            public string requiredWord;     // слово, которое должно быть в сообщении
+            if (nextLevelButton != null)
+                nextLevelButton.interactable = true;
+            if (sendButton != null)
+                sendButton.interactable = false;
             
-            public ColorPositionRequirement(SignalColor c, ColorPosition pos, string word)
-            {
-                color = c;
-                position = pos;
-                requiredWord = word;
-            }
+            isBattleInProgress = false;
+            Debug.Log("[OnRewardSelected] Reward chosen, can proceed to next level");
         }
 
-        // Массив требований для проверки сообщений
-        private ColorPositionRequirement[] colorRules = new ColorPositionRequirement[]
+        private void ShowGameOver()
         {
-            new ColorPositionRequirement(SignalColor.Red, ColorPosition.Start, "атакуй"),
-            new ColorPositionRequirement(SignalColor.Red, ColorPosition.Middle, "много"),
-            new ColorPositionRequirement(SignalColor.Red, ColorPosition.End, "закат"),
-            new ColorPositionRequirement(SignalColor.Green, ColorPosition.Start, "защищайся"),
-            new ColorPositionRequirement(SignalColor.Green, ColorPosition.Middle, "нет"),
-            new ColorPositionRequirement(SignalColor.Green, ColorPosition.End, "поле"),
-        };
-
-        // Новая проверка шифрования с учётом позиции
-        bool IsMessageCorrectlyEncodedWithPosition(SignalColor[] colors, string message)
-        {
-            string lowerMsg = message.ToLower();
-            
-            for (int i = 0; i < 3; i++)
+            if (gameOverPanel != null)
             {
-                SignalColor color = colors[i];
-                ColorPosition position = (ColorPosition)i;  // 0=Start, 1=Middle, 2=End
+                if (gameOverScoreText != null)
+                    gameOverScoreText.text = $"Levels completed: {currentLevel - 1}";
                 
-                // Находим правило для этой комбинации
-                var rule = colorRules.FirstOrDefault(r => r.color == color && r.position == position);
+                gameOverPanel.SetActive(true);
+            }
+            
+            if (sendButton != null) sendButton.interactable = false;
+            if (nextLevelButton != null) nextLevelButton.interactable = false;
+            if (scoutButton != null) scoutButton.interactable = false;
+            
+            isBattleInProgress = false;
+        }
+
+        private void RestartGame()
+        {
+            Debug.Log("[RestartGame] Restarting game");
+            StartNewGame();
+            
+            if (gameOverPanel != null)
+                gameOverPanel.SetActive(false);
+            
+            if (battleLogText != null)
+                battleLogText.text = "New game! Choose colors and shapes.";
+            
+            if (scoutButton != null) scoutButton.interactable = true;
+        }
+
+        private void OnPlayerDeath()
+        {
+            ShowGameOver();
+        }
+
+        private void ShowScoutInfo()
+        {
+            if (currentEnemy == null)
+            {
+                if (scoutEnemyNameText != null) scoutEnemyNameText.text = "Enemy unknown";
+                if (scoutShapesText != null) scoutShapesText.text = "Start a battle to see the enemy";
+                if (scoutTurnOrderText != null) scoutTurnOrderText.text = "";
+            }
+            else
+            {
+                if (scoutEnemyNameText != null) scoutEnemyNameText.text = $"ENEMY: {currentEnemy.enemyName}";
                 
-                if (rule != null)
+                string shapesString = "";
+                foreach (var shape in currentEnemy.shapes)
                 {
-
-                    if (lowerMsg.Contains(rule.requiredWord))
-                    {
-
-                    }
-                    else
-                    {
-                        bool requiredByOtherRule = colorRules.Any(r => 
-                            r.position == position && lowerMsg.Contains(r.requiredWord));
-                        
-                        if (!requiredByOtherRule)
-                        {
-                            return false;
-                        }
-                    }
+                    shapesString += GetShapeSymbol(shape) + " -> ";
+                }
+                shapesString = shapesString.TrimEnd(' ', '-', '>');
+                
+                if (scoutShapesText != null) scoutShapesText.text = $"CHAIN: {shapesString}";
+                
+                if (scoutTurnOrderText != null)
+                {
+                    scoutTurnOrderText.text = currentEnemy.playerFirst ? 
+                        "FIRST MOVE: ENEMY" : 
+                        "FIRST MOVE: YOU";
                 }
             }
             
-            return true;
+            if (scoutPanel != null)
+                scoutPanel.SetActive(true);
         }
-        
 
+        public void CloseScoutPanel()
+        {
+            if (scoutPanel != null)
+                scoutPanel.SetActive(false);
+        }
 
-
-
-
-
-// ----------------------------------------------------- Вспомогательные классы и методы обработка (враги, уровни) -------------------------------------------------------------
-
-        string GetShapeSymbol(ShapeType shape)
+        private string GetShapeSymbol(ShapeType shape)
         {
             switch (shape)
             {
-                case ShapeType.Square: return "⬛ Квадрат";
-                case ShapeType.Triangle: return "▲ Треугольник";
-                case ShapeType.Circle: return "● Круг";
+                case ShapeType.Square: return "Square";
+                case ShapeType.Triangle: return "Triangle";
+                case ShapeType.Circle: return "Circle";
                 default: return "?";
             }
         }
 
-        EnemyData GetCurrentEnemy()
+        private EnemyData GetCurrentEnemy()
         {
-            int index = (currentLevel - 1) % enemies.Length;
-            var enemy = enemies[index];
+            int baseHp = 30 + (currentLevel - 1) * 5;
+            int baseAttack = 10 + (currentLevel - 1) * 2;
             
-            int extraHp = (currentLevel - 1) * 3;
-            int extraAttack = (currentLevel - 1) * 1;
+            ShapeType[][] possiblePatterns = new ShapeType[][]
+            {
+                new ShapeType[] { ShapeType.Triangle, ShapeType.Square, ShapeType.Circle },
+                new ShapeType[] { ShapeType.Square, ShapeType.Triangle, ShapeType.Square },
+                new ShapeType[] { ShapeType.Circle, ShapeType.Triangle, ShapeType.Triangle },
+                new ShapeType[] { ShapeType.Square, ShapeType.Circle, ShapeType.Square },
+                new ShapeType[] { ShapeType.Triangle, ShapeType.Circle, ShapeType.Triangle },
+                new ShapeType[] { ShapeType.Circle, ShapeType.Square, ShapeType.Triangle }
+            };
+            
+            var pattern = possiblePatterns[Random.Range(0, possiblePatterns.Length)];
+            bool playerFirst = Random.Range(0, 100) > (15 + currentLevel * 2);
+            
+            string[] enemyNames = { "Scanner", "Jammer", "Interceptor", "Encryptor", "Analyzer", "Kraken", "Ghost", "Silence" };
+            string name = enemyNames[Random.Range(0, enemyNames.Length)] + (currentLevel > 10 ? "+" : "");
             
             return new EnemyData(
-                enemy.enemyName + (currentLevel > enemies.Length ? "+" : ""),
-                enemy.shapes,
-                enemy.playerFirst,
-                enemy.enemyHp + extraHp,
-                enemy.attackPower + extraAttack
+                name,
+                pattern,
+                playerFirst,
+                baseHp,
+                baseAttack
             );
         }
 
-        // Добавь метод для закрытия окна (повесь на кнопку "Закрыть")
-        public void CloseScoutPanel()
+        private bool IsMessageCorrectlyEncoded(SignalColor[] colors, GeneratedMessage message)
         {
-            scoutPanel.SetActive(false);
-        }
-
-        // Класс для хранения уровня
-        [System.Serializable]
-        public class MessageLevel
-        {
-            public string message;
-            public bool needNoEnemies;
-            public bool needAttack;
+            if (message == null || message.requiredColors == null) return false;
             
-            public MessageLevel(string msg, bool needNoEnemies, bool needAttack)
+            // Проверяем каждую позицию
+            for (int i = 0; i < 3; i++)
             {
-                this.message = msg;
-                this.needNoEnemies = needNoEnemies;
-                this.needAttack = needAttack;
+                if (colors[i] != message.requiredColors[i]) return false;
             }
+            
+            return true;
         }
     }
 }

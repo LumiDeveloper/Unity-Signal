@@ -10,16 +10,20 @@ namespace SignalRoguelite
     public class BattleTester : MonoBehaviour
     {
         [Header("UI Elements")]
-        [SerializeField] private TMP_Dropdown color1Dropdown;
-        [SerializeField] private TMP_Dropdown color2Dropdown;
-        [SerializeField] private TMP_Dropdown color3Dropdown;
-        [SerializeField] private TMP_Dropdown shape1Dropdown;
-        [SerializeField] private TMP_Dropdown shape2Dropdown;
-        [SerializeField] private TMP_Dropdown shape3Dropdown;     
         [SerializeField] private TMP_Text battleLogText;
         [SerializeField] private TMP_Text messageText;
         [SerializeField] private Button sendButton;
         [SerializeField] private Button nextLevelButton;
+
+        [Header("Color Selectors")]
+        [SerializeField] private ColorToggle colorToggle1;
+        [SerializeField] private ColorToggle colorToggle2;
+        [SerializeField] private ColorToggle colorToggle3;
+
+        [Header("Shape Carousels")]
+        [SerializeField] private ShapeCarousel shapeCarousel1;
+        [SerializeField] private ShapeCarousel shapeCarousel2;
+        [SerializeField] private ShapeCarousel shapeCarousel3;
 
         [Header("Scout")]
         [SerializeField] private GameObject scoutPanel;
@@ -36,26 +40,9 @@ namespace SignalRoguelite
         [SerializeField] private TMP_Text gameOverScoreText;
         [SerializeField] private Button restartButton;
 
-<<<<<<< HEAD
-        [Header("Color Selectors")]
-        [SerializeField] private ColorToggle colorToggle1;
-        [SerializeField] private ColorToggle colorToggle2;
-        [SerializeField] private ColorToggle colorToggle3;
-
-        [Header("Shape Carousels")]
-        [SerializeField] private ShapeCarousel shapeCarousel1;
-        [SerializeField] private ShapeCarousel shapeCarousel2;
-        [SerializeField] private ShapeCarousel shapeCarousel3;
-
         [Header("Roguelike")]
         [SerializeField] private RoguelikeProgress roguelikeProgress;
 
-=======
-        [Header("Roguelike")]
-        [SerializeField] private RoguelikeProgress roguelikeProgress;
-
-        // Private fields
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
         private EnemyData currentEnemy;
         private EncodedSignal currentSignal;
         private int currentLevel = 1;
@@ -69,38 +56,22 @@ namespace SignalRoguelite
 
         private void Initialize()
         {
-<<<<<<< HEAD
-=======
-            // Button subscriptions
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             if (sendButton != null) sendButton.onClick.AddListener(StartBattle);
             if (nextLevelButton != null) nextLevelButton.onClick.AddListener(NextLevel);
             if (scoutButton != null) scoutButton.onClick.AddListener(ShowScoutInfo);
             if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
 
-<<<<<<< HEAD
-=======
-            // Initialization
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             currentSignal = new EncodedSignal();
             
             if (scoutPanel != null) scoutPanel.SetActive(false);
             if (gameOverPanel != null) gameOverPanel.SetActive(false);
             
-<<<<<<< HEAD
-=======
-            // Roguelike events subscription
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             if (roguelikeProgress != null)
             {
                 roguelikeProgress.OnPlayerDeath += OnPlayerDeath;
                 roguelikeProgress.OnRewardSelected += OnRewardSelected;
             }
 
-<<<<<<< HEAD
-=======
-            // Start game
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             StartNewGame();
         }
 
@@ -117,10 +88,6 @@ namespace SignalRoguelite
 
         private void GenerateNewLevel()
         {
-<<<<<<< HEAD
-=======
-            // Null check for UI components
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             if (messageText == null || levelCounterText == null)
             {
                 Debug.LogError("[GenerateNewLevel] UI components not assigned in inspector!");
@@ -152,11 +119,6 @@ namespace SignalRoguelite
                 sendButton.interactable = true;
             
             isBattleInProgress = false;
-<<<<<<< HEAD
-=======
-            
-            Debug.Log($"[GenerateNewLevel] Level {currentLevel} created. HP: {roguelikeProgress?.CurrentHP}/{roguelikeProgress?.MaxHP}");
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
         }
 
         private void StartBattle()
@@ -173,10 +135,6 @@ namespace SignalRoguelite
                 return;
             }
             
-<<<<<<< HEAD
-=======
-            // Check and restore message
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             if (currentMessage == null)
             {
                 Debug.LogWarning("[StartBattle] currentMessage = null, regenerating level!");
@@ -191,7 +149,7 @@ namespace SignalRoguelite
             
             isBattleInProgress = true;
             
-<<<<<<< HEAD
+            // Collect signal from ColorToggles and ShapeCarousels
             currentSignal.colors[0] = colorToggle1.CurrentColor;
             currentSignal.colors[1] = colorToggle2.CurrentColor;
             currentSignal.colors[2] = colorToggle3.CurrentColor;
@@ -205,61 +163,25 @@ namespace SignalRoguelite
             BattleResult result = BattleResolver.RunBattle(currentSignal, currentEnemy, out string log, roguelikeProgress);
             bool encryptionCorrect = IsMessageCorrectlyEncoded(currentSignal.colors, currentMessage);
             
-=======
-            // Collect signal from UI
-            currentSignal.colors[0] = (SignalColor)color1Dropdown.value;
-            currentSignal.colors[1] = (SignalColor)color2Dropdown.value;
-            currentSignal.colors[2] = (SignalColor)color3Dropdown.value;
-            currentSignal.shapes[0] = (ShapeType)shape1Dropdown.value;
-            currentSignal.shapes[1] = (ShapeType)shape2Dropdown.value;
-            currentSignal.shapes[2] = (ShapeType)shape3Dropdown.value;
-            
-            // Get enemy
-            currentEnemy = GetCurrentEnemy();
-            
-            Debug.Log($"[StartBattle] Battle starting. Level {currentLevel}, Player HP: {roguelikeProgress.CurrentHP}/{roguelikeProgress.MaxHP}");
-            
-            // Run battle
-            BattleResult result = BattleResolver.RunBattle(currentSignal, currentEnemy, out string log, roguelikeProgress);
-
-            // Check encryption correctness
-            bool encryptionCorrect = IsMessageCorrectlyEncoded(currentSignal.colors, currentMessage);
-
-            // Form result
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             if (result == BattleResult.Victory)
             {
                 if (encryptionCorrect)
                 {
-<<<<<<< HEAD
                     battleLogText.text = log + "\n\nVICTORY! Signal delivered. Ally UNDERSTOOD the message!";
-=======
-                    battleLogText.text = log + $"\n\nVICTORY! Signal delivered. Ally UNDERSTOOD the message!";
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
                     roguelikeProgress.ShowReward();
                     sendButton.interactable = false;
                 }
                 else
                 {
-<<<<<<< HEAD
-=======
-                    // GAME OVER - wrong encryption despite winning
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
                     string requiredText = "";
                     for (int i = 0; i < 3; i++)
                     {
                         requiredText += $"Pos{i+1}: {(currentMessage.requiredColors[i] == SignalColor.Red ? "RED" : "GREEN")} ";
                     }
                     
-<<<<<<< HEAD
                     battleLogText.text = log + "\n\nYOU WON THE BATTLE, BUT THE MESSAGE WAS WRONG!\n" +
                                         $"Required colors: {requiredText}\n" +
                                         "GAME OVER - Mission failed due to wrong encryption.";
-=======
-                    battleLogText.text = log + $"\n\nYOU WON THE BATTLE, BUT THE MESSAGE WAS WRONG!\n" +
-                                        $"Required colors: {requiredText}\n" +
-                                        $"GAME OVER - Mission failed due to wrong encryption.";
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
                     roguelikeProgress.ForceKill();
                     sendButton.interactable = false;
                     nextLevelButton.interactable = false;
@@ -267,12 +189,7 @@ namespace SignalRoguelite
             }
             else
             {
-<<<<<<< HEAD
                 battleLogText.text = log + "\n\nDEFEAT! Signal intercepted. Game Over.";
-=======
-                // GAME OVER - lost the battle
-                battleLogText.text = log + $"\n\nDEFEAT! Signal intercepted. Game Over.";
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
                 sendButton.interactable = false;
                 nextLevelButton.interactable = false;
             }
@@ -288,10 +205,6 @@ namespace SignalRoguelite
             
             currentLevel++;
             GenerateNewLevel();
-<<<<<<< HEAD
-=======
-            Debug.Log($"[NextLevel] Moving to level {currentLevel}");
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
         }
 
         private void OnRewardSelected()
@@ -302,10 +215,6 @@ namespace SignalRoguelite
                 sendButton.interactable = false;
             
             isBattleInProgress = false;
-<<<<<<< HEAD
-=======
-            Debug.Log("[OnRewardSelected] Reward chosen, can proceed to next level");
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
         }
 
         private void ShowGameOver()
@@ -327,10 +236,6 @@ namespace SignalRoguelite
 
         private void RestartGame()
         {
-<<<<<<< HEAD
-=======
-            Debug.Log("[RestartGame] Restarting game");
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             StartNewGame();
             
             if (gameOverPanel != null)
@@ -351,22 +256,13 @@ namespace SignalRoguelite
         {
             if (currentEnemy == null)
             {
-<<<<<<< HEAD
                 if (scoutEnemyNameText != null) scoutEnemyNameText.text = "???";
                 if (scoutShapesText != null) scoutShapesText.text = "Start battle first";
-=======
-                if (scoutEnemyNameText != null) scoutEnemyNameText.text = "Enemy unknown";
-                if (scoutShapesText != null) scoutShapesText.text = "Start a battle to see the enemy";
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
                 if (scoutTurnOrderText != null) scoutTurnOrderText.text = "";
             }
             else
             {
-<<<<<<< HEAD
                 if (scoutEnemyNameText != null) scoutEnemyNameText.text = currentEnemy.enemyName;
-=======
-                if (scoutEnemyNameText != null) scoutEnemyNameText.text = $"ENEMY: {currentEnemy.enemyName}";
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
                 
                 string shapesString = "";
                 foreach (var shape in currentEnemy.shapes)
@@ -375,21 +271,11 @@ namespace SignalRoguelite
                 }
                 shapesString = shapesString.TrimEnd(' ', '-', '>');
                 
-<<<<<<< HEAD
                 if (scoutShapesText != null) scoutShapesText.text = shapesString;
                 
                 if (scoutTurnOrderText != null)
                 {
                     scoutTurnOrderText.text = currentEnemy.playerFirst ? "ENEMY FIRST" : "YOU FIRST";
-=======
-                if (scoutShapesText != null) scoutShapesText.text = $"CHAIN: {shapesString}";
-                
-                if (scoutTurnOrderText != null)
-                {
-                    scoutTurnOrderText.text = currentEnemy.playerFirst ? 
-                        "FIRST MOVE: ENEMY" : 
-                        "FIRST MOVE: YOU";
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
                 }
             }
             
@@ -448,10 +334,6 @@ namespace SignalRoguelite
         {
             if (message == null || message.requiredColors == null) return false;
             
-<<<<<<< HEAD
-=======
-            // Проверяем каждую позицию
->>>>>>> 85ecedfe888998b7f87a2790d2757d5ab07d70ff
             for (int i = 0; i < 3; i++)
             {
                 if (colors[i] != message.requiredColors[i]) return false;

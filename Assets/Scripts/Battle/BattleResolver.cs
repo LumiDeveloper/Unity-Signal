@@ -95,32 +95,24 @@ namespace SignalRoguelite
             
             for (int step = 0; step < 3; step++)
             {
-                battleLog += $"\n--- Step {step + 1} ---\n";
-                
                 StepResult stepResult = ResolveStep(playerSignal.shapes[step], enemy.shapes[step], 
                     enemy.attackPower, attackBonus, healBonus);
                 
-                // Log turn order
-                if (enemy.playerFirst)
-                {
-                    battleLog += "Enemy attacks first!\n";
-                }
+                if (enemy.playerFirst && step == 0)
+                    battleLog += "\n[Enemy goes first]\n";
                 
-                // Apply step result
                 ApplyStepResult(ref playerHp, ref enemyHp, stepResult, ref battleLog);
                 
-                // Check player death
                 if (playerHp <= 0)
                 {
-                    battleLog += "\nYOUR SIGNAL WAS INTERCEPTED! Communication link broken.\n";
+                    battleLog += "\n[FAIL] Signal intercepted. Game Over.\n";
                     roguelikeProgress.ForceKill();
                     return BattleResult.Defeat;
                 }
                 
-                // Check enemy death
                 if (enemyHp <= 0)
                 {
-                    battleLog += "\nENEMY DEFEATED! Signal delivered!\n";
+                    battleLog += "\n[WIN] Enemy defeated. Signal delivered.\n";
                     SyncFinalHP(roguelikeProgress, playerHp);
                     return BattleResult.Victory;
                 }
@@ -143,27 +135,25 @@ namespace SignalRoguelite
             int oldPlayerHp = playerHp;
             int oldEnemyHp = enemyHp;
             
-            // Apply changes
             playerHp += result.playerHeal;
             playerHp -= result.enemyDamage;
             enemyHp -= result.playerDamage;
             
-            // Clamp values
             playerHp = Mathf.Max(0, playerHp);
             enemyHp = Mathf.Max(0, enemyHp);
             
-            // Add damage/heal info to log
-            battleLog += result.logMessage;
+            // Краткий лог действия
+            string actionLog = "";
             
             if (result.playerHeal > 0)
-                battleLog += $" (Restored {result.playerHeal} HP)";
+                actionLog += $" Heal +{result.playerHeal}";
             if (result.playerDamage > 0)
-                battleLog += $" (Dealt {result.playerDamage} damage)";
+                actionLog += $" Attack -{result.playerDamage}";
             if (result.enemyDamage > 0)
-                battleLog += $" (Received {result.enemyDamage} damage)";
+                actionLog += $" Enemy -{result.enemyDamage}";
             
-            battleLog += $"\nPlayer HP: {oldPlayerHp} -> {playerHp}";
-            battleLog += $" | Enemy HP: {oldEnemyHp} -> {enemyHp}\n";
+            battleLog += $"\nStep: {result.logMessage}{actionLog}";
+            battleLog += $"\nHP {oldPlayerHp}|{playerHp} | Enemy {oldEnemyHp}|{enemyHp}\n";
         }
 
         // Sync final HP with RoguelikeProgress

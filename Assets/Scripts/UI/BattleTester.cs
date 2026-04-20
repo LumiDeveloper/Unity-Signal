@@ -32,6 +32,26 @@ namespace SignalRoguelite
         [SerializeField] private TMP_Text scoutTurnOrderText;
         [SerializeField] private Button scoutButton;
 
+        [Header("Enemy Icon")]
+        [SerializeField] private Image enemyIcon;
+        [SerializeField] private Sprite easySprite;
+        [SerializeField] private Sprite mediumSprite;
+        [SerializeField] private Sprite hardSprite;
+
+        private void UpdateEnemyIcon()
+        {
+            if (enemyIcon == null) return;
+            
+            if (currentLevel <= 3)
+                enemyIcon.sprite = easySprite;
+            else if (currentLevel <= 7)
+                enemyIcon.sprite = mediumSprite;
+            else
+                enemyIcon.sprite = hardSprite;
+
+            Debug.Log($"[UpdateEnemyIcon] Уровень {currentLevel}, спрайт: {(currentLevel <= 3 ? "EASY" : currentLevel <= 7 ? "MEDIUM" : "HARD")}");
+        }
+
         [Header("Level Counter")]
         [SerializeField] private TMP_Text levelCounterText;
 
@@ -119,6 +139,7 @@ namespace SignalRoguelite
                 sendButton.interactable = true;
             
             isBattleInProgress = false;
+            UpdateEnemyIcon();
         }
 
         private void StartBattle()
@@ -149,7 +170,6 @@ namespace SignalRoguelite
             
             isBattleInProgress = true;
             
-            // Collect signal from ColorToggles and ShapeCarousels
             currentSignal.colors[0] = colorToggle1.CurrentColor;
             currentSignal.colors[1] = colorToggle2.CurrentColor;
             currentSignal.colors[2] = colorToggle3.CurrentColor;
@@ -197,14 +217,12 @@ namespace SignalRoguelite
 
         private void NextLevel()
         {
-            if (isBattleInProgress)
-            {
-                Debug.LogWarning("[NextLevel] Cannot go to next level during battle!");
-                return;
-            }
+            if (isBattleInProgress) return;
             
             currentLevel++;
+            Debug.Log($"[NextLevel] Теперь уровень {currentLevel}");
             GenerateNewLevel();
+            UpdateEnemyIcon();
         }
 
         private void OnRewardSelected()
@@ -232,6 +250,14 @@ namespace SignalRoguelite
             if (scoutButton != null) scoutButton.interactable = false;
             
             isBattleInProgress = false;
+
+            // Возвращаемся на главный экран монитора
+            BootLoader bootLoader = FindObjectOfType<BootLoader>();
+            if (bootLoader != null)
+            {
+                bootLoader.ReturnToMainMonitor();
+            }
+
         }
 
         private void RestartGame()
@@ -267,9 +293,9 @@ namespace SignalRoguelite
                 string shapesString = "";
                 foreach (var shape in currentEnemy.shapes)
                 {
-                    shapesString += GetShapeSymbol(shape) + " -> ";
+                    shapesString += GetShapeSymbol(shape) + " - ";
                 }
-                shapesString = shapesString.TrimEnd(' ', '-', '>');
+                shapesString = shapesString.TrimEnd(' ', '-');
                 
                 if (scoutShapesText != null) scoutShapesText.text = shapesString;
                 
@@ -278,6 +304,9 @@ namespace SignalRoguelite
                     scoutTurnOrderText.text = currentEnemy.playerFirst ? "ENEMY FIRST" : "YOU FIRST";
                 }
             }
+            
+            // Обновляем иконку по уровню
+            UpdateEnemyIcon();
             
             if (scoutPanel != null)
                 scoutPanel.SetActive(true);
@@ -321,12 +350,14 @@ namespace SignalRoguelite
             string[] enemyNames = { "Scanner", "Jammer", "Interceptor", "Encryptor", "Analyzer", "Kraken", "Ghost", "Silence" };
             string name = enemyNames[Random.Range(0, enemyNames.Length)] + (currentLevel > 10 ? "+" : "");
             
+            // Возвращаем врага без спрайта (иконки управляются отдельно)
             return new EnemyData(
                 name,
                 pattern,
                 playerFirst,
                 baseHp,
-                baseAttack
+                baseAttack,
+                null  // спрайт не используется, иконки включаются через ShowScoutInfo
             );
         }
 
